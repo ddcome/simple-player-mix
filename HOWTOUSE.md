@@ -5,8 +5,8 @@ https://sys-gitlab.hikvision.com.cn/PBG/components/general/bsquare/-/tree/releas
 
 ## 功能清单
 
-|   功能 | 支持 | 依赖 |
-| -- | -- | -- | -- | -- |
+|  功能 | 支持 | 依赖 |
+| :--: | :--: | :--: |
 | 权限 | 是 |  |
 | 试看功能 | 是 |  |
 | 兼容H5 | 是 |  |
@@ -122,7 +122,7 @@ Vue工程中，将`jsPlugin`文件夹拷贝到放置于`src/public/static/`下�
 ### 播放器的属性以及方法
 
 | 属性 | 类型 | 含义 |
-| -- | -- | -- | -- |
+| -- | -- | -- |
 | player-type | String | 播放器类型，字典值是h5_player和client_container，默认client_container |
 | api-methods | Object| api接口对象 |
 | config | Object| 配置项对象 |
@@ -151,7 +151,7 @@ import simplePlayer from '@/components/simple-player/index.vue';
 
 ### ==api-methods==
 |  API名称 | 类型 | 含义 |
-| -- | -- | -- | -- |
+| -- | -- | -- |
 | queryH5PreviewApi | Promise | H5预览查询接口 |
 | queryH5PlaybackApi | Promise | H5回放查询接口 |
 | queryAlgorithmsApi | Promise | 查询算法接口 |
@@ -196,7 +196,7 @@ import simplePlayer from '@/components/simple-player/index.vue';
 
 ### ==配置项 `config`==
 |   属性 | 类型 | 含义 |
-| -- | -- | -- | -- |
+| -- | -- | -- |
 | theme | String | 主题 |
 | mode | Number| 播放器模式 |
 | debug | String | 是否开启debug模式（开启后控制台有日志） |
@@ -319,13 +319,13 @@ import simplePlayer from '@/components/simple-player/index.vue';
 #### ==doAddAuth==
 更新权限
 |   参数 | 类型 | 是否必填 | 含义 |
-| -- | -- | -- | -- | -- |
+| -- | -- | -- | -- |
 | pointInfos | Array | 是 | 视频点位对象集合 |
 
 #### ==doReplacePlay==
 替换到当前选中（无选中则指定_index替换）窗口
 |   参数 | 类型 | 是否必填 | 含义 |
-| -- | -- | -- | -- | -- |
+| -- | -- | -- | -- |
 | pointInfo | Object | 是 | 视频点位对象 |
 | _index | Number| 否 | 窗口下标（不传则默认替换当前选中窗口） |
 | playStatus | String | 否 | 预览回放标识 |
@@ -339,13 +339,13 @@ import simplePlayer from '@/components/simple-player/index.vue';
 #### ==doPlayback==
 批量回放,不传参则默认刷新
 |   参数 | 类型 | 是否必填 | 含义 |
-| -- | -- | -- | -- | -- |
+| -- | -- | -- | -- |
 | pointInfo | String | 是 | 视频点位对象 |
 
 关于参数pointInfo中核心参数说明：
 
 |   字段名称 | 类型 | 是否必填 | 含义 |
-| -- | -- | -- | -- | -- |
+| -- | -- | -- | -- |
 | indexCode | String | 是 | 点位ID |
 | url | String | 否 | 取流URL(对于极简播放器生效，rtsp协议取流地址) |
 | recordStyle | Number | 否 | 存储类型 |
@@ -362,7 +362,7 @@ import simplePlayer from '@/components/simple-player/index.vue';
 
 关于H5的回放参数`h5Params`说明:
 |   字段名称 | 类型 | 是否必填 | 含义 |
-| -- | -- | -- | -- | -- |
+| -- | -- | -- | -- |
 | streamType | String | 是 | 码流类型（按照接口返回如实传递） |
 | transmode | Number | 否 | 取流方式（按照接口返回如实传递） |
 | protocol | Number | 否 | 协议类型 |
