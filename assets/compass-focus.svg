@@ -1,0 +1,13 @@
+<svg width="24.000000" height="24.000000" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs/>
+	<g opacity="0.000000">
+		<rect id="矩形备份 18" width="24.000000" height="24.000000" fill="#D8D8D8" fill-opacity="1.000000"/>
+		<rect id="矩形备份 18" x="0.500000" y="0.500000" width="23.000000" height="23.000000" stroke="#979797" stroke-opacity="0" stroke-width="1.000000"/>
+	</g>
+	<g opacity="0.700000">
+		<path id="形状" d="M8 5L10 5L10 6L8 6L8 8L7 8L7 6C7 5.44775 7.44775 5 8 5ZM20 6L20 8L19 8L19 6L17 6L17 5L19 5C19.5522 5 20 5.44775 20 6ZM20 14C20 14.5522 19.5522 15 19 15L18 15L18 14L19 14L19 12L20 12L20 14ZM11 5L13 5L13 6L11 6L11 5ZM14 5L16 5L16 6L14 6L14 5ZM19 9L20 9L20 11L19 11L19 9ZM5 10L16 10L16 18L5 18L5 10ZM5 9L16 9C16.5522 9 17 9.44775 17 10L17 18C17 18.5522 16.5522 19 16 19L5 19C4.44775 19 4 18.5522 4 18L4 10C4 9.44775 4.44775 9 5 9Z" clip-rule="evenodd" fill="currentColor" fill-opacity="1.000000" fill-rule="evenodd"/>
+	</g>
+</svg>
