@@ -1,0 +1,13 @@
+<svg width="200px" height="200px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" opacity="1">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs>
+		<clipPath id="clip171_721">
+			<rect id="下一帧" width="24.000000" height="24.000000" fill="currentColor"/>
+		</clipPath>
+	</defs>
+	<g clip-path="url(#clip171_721)">
+		<path id="Mask" d="M17.777 11.917C17.916 11.824 18 11.668 18 11.501C18 11.334 17.915 11.178 17.776 11.085L8.776 5.08398C8.622 4.98098 8.425 4.97198 8.263 5.05898C8.101 5.14598 8 5.31498 8 5.49998L8 17.5C8 17.685 8.101 17.854 8.263 17.941C8.337 17.98 8.417 18 8.499 18C8.595 18 8.692 17.972 8.776 17.916L17.777 11.917ZM6.5 4.99996C6.224 4.99996 6 5.24296 6 5.54196L6 17.459C6 17.758 6.224 18.001 6.5 18.001C6.776 18.001 7 17.758 7 17.459L7 5.54196C7 5.24296 6.776 4.99996 6.5 4.99996ZM16.5991 11.501L9.00006 6.43496L9.00006 16.566L16.5991 11.501Z" clip-rule="evenodd" fill-rule="evenodd" fill="currentColor" fill-opacity="1"/>
+	</g>
+</svg>
