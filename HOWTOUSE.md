@@ -200,15 +200,26 @@ import simplePlayer from '@/components/simple-player/index.vue';
 | theme | String | 主题 |
 | mode | Number| 播放器模式 |
 | debug | String | 是否开启debug模式（开启后控制台有日志） |
+| showMoreScreens | Boolean | 是否展示底部工具栏中异形屏按钮，默认false |
 | showTitle | Boolean | 是否展示窗口标题，默认true |
 | showToolBar | Boolean | 是否展示全局底部工具栏，默认true |
 | showHeader | Boolean | 是否展示全局头部工具栏，默认true |
+| showSetting | Boolean | 是否展示极简播放器器右上侧的配置按钮，默认true |
 | showSequence | Boolean | 是否展示窗口编号，默认false |
 | showAlgorithmAnalysis | Boolean | 是否展示算法分析功能，默认false |
 | showLabelTag | Boolean | 是否展示标签标记功能，默认false |
+| showEventReport | Boolean | 是否展示事件上报功能，默认false |
+| showPictureTag | Boolean | 是否展示图片标签功能，默认false |
+| showAiRecommend | Boolean | 是否展示智能推荐功能，默认false |
+| openPtzWidthMini | Boolean | 当点击打开云台时，是否默认打开mini云台控制窗口，默认false |
 | strictAuthMode | Boolean | 权限严格模式，false则不校验能力集,默认不校验能力集 |
 | hasApplyAuth | Boolean | 是否可以申请权限，默认true |
+| maxScreen | Number | 允许的播放器使用的最大分屏数，默认9 |
 | videoTryTime | Number | 试看次数，默认3 |
+| checkTool | Boolean | 是否检测插件助手，默认true |
+| capabilitySetKey | String | 能力集字段名称，默认capabilitySet |
+| globalTopHeader | Object | 全局头部,{ display: true, 是否展示 hasConcentrate: true, 是否有浓缩播放 } |
+| globalToolBar | Object | 全局底部工具栏,{ display: true, 是否展示 hasPlayerBtnGroup: true, 是否有播放器按钮组 } |
 | readStreamWay | Number | 极简取流方式。默认1。0-通过URL取流；1-通过indexCode取流；2-自动识别 |
 | queryH5PreviewParamKeys | Array | 指定H5预览参数，默认['indexCode', 'streamType', 'protocol', 'transmode', 'expand'] |
 | queryH5PlaybackParamKeys| Array | 指定H5回放参数，默认['indexCode', 'startTime', 'endTime', 'recordType', 'recordStyle', 'protocol', 'dataType', 'lockType', 'expand'] |
@@ -249,7 +260,7 @@ import simplePlayer from '@/components/simple-player/index.vue';
 ```
 <font color="#ff0000">PS： 其他个性参数，因事件类型决定（打印参数联调查看）</font>
 
-`event_type`事件类型字典值如下：
+`EVENT_TYPE`事件类型字典值如下：
 | 事件名称 | 触发点 | 含义 |
 | -- | -- | -- |
 | SHOW_PLAYER_INFO | 点击窗口头部状态栏中的信息图标 | 播放器头部按钮信息点击触发 |  
@@ -259,6 +270,7 @@ import simplePlayer from '@/components/simple-player/index.vue';
 | START_PLAY | 开始播放时 | 开始播放触发 |  
 | APPLY_AUTH | “申请权限”相关点击时 | 申请权限触发 |  
 | APPLY_AUTH_OPENED | 申请权限图层被打开时 | 申请权限层打开 |  
+| REFRESH | 取流失败后，点击“刷新重试”按钮触发 | 刷新 |  
 | FIRST_PAGE | 被动初始化首页时 | 初始化首页触发 |
 | PRE_PAGE | 点击底部状态栏时 | 前一页触发 |
 | GO_PAGE | 跳转到某一页时 | 跳转页触发 |  
@@ -280,9 +292,22 @@ import simplePlayer from '@/components/simple-player/index.vue';
 | BATCH_ALGORITHM_ANALYSIS | 播放器顶部“算法分析”点击后 | 批量算法分析 |
 | SINGLE_ALGORITHM_ANALYSIS | 某个窗口算法分析点击后 | 单个算法分析 |
 | LABEL_TAG| 某个标记标记点击后 | 标签标记 |
+| AI_RECOMMEND | 点击智能推荐时 | 智能推荐 |
 | TIME_INTERVAL_CHANGE | 改变轮播时间时 | 轮播时间被改变事件 |
 | MOVE_RIGHT |  | 向右滑动 |  
 | MOVE_LEFT |  | 向左滑动 |
+| BEFORE_GO_TO_PAGE | 切换翻页 | 翻页之前
+| SINGLE_LOOP_END | 完成一次轮播时 | 单次轮询结束
+| PTZ_TOP | mini云台控制窗口点击事件 | 云台控制向上
+| PTZ_LEFT | mini云台控制窗口点击事件 | 云台控制向左
+| PTZ_RIGHT | mini云台控制窗口点击事件 | 云台控制向右
+| PTZ_BOTTOM | mini云台控制窗口点击事件 | 云台控制向下
+| PTZ_LEFT_TOP | mini云台控制窗口点击事件 | 云台控制向左上
+| PTZ_LEFT_BOTTOM | mini云台控制窗口点击事件 | 云台控制向左下
+| PTZ_RIGHT_TOP | mini云台控制窗口点击事件 | 云台控制向右上
+| PTZ_RIGHT_BOTTOM | mini云台控制窗口点击事件 | 云台控制向右下
+| PTZ_FOCUS | mini云台控制窗口点击事件 | 云台控制聚焦
+| PTZ_OUT_OF_FOCUS | mini云台控制窗口点击事件 | 云台控制失焦
 
 
 
@@ -576,3 +601,4 @@ apiMethodsMap: {
 | 初始化文档 | lixiaodong31 | 2024-04-12 |
 | 增加新功能说明，点搜使用的算法申请`showAlgorithmAnalysis` | lixiaodong31 | 2024-04-16 |
 | 增加了安装依赖部分说明，主要是svg部分，变更了实现方案，以后必须安装`svg-sprite-loader`并配置 | lixiaodong31 | 2024-06-26 |
+| 补充部分章节新增的功能说明 | lixiaodong31 | 2025-03-18 |
