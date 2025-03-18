@@ -1,0 +1,35 @@
+export const CommonMixin = {
+    data() {
+        return {
+            visible: false
+        };
+    },
+    props: {
+        index: {
+            type: Number,
+            default: null
+        }
+    },
+    methods: {
+        open() {
+            this.visible = true;
+        },
+        close() {
+            this.clear && this.clear();
+            this.visible = false;
+        },
+        flesh() {
+            this.init && this.init();
+        },
+        openLayer(refKey) {
+            this.$parent.openLayer(refKey);
+        },
+        closeLayer(refKey) {
+            this.$parent.closeLayer(refKey);
+        },
+        // 图层事件抛出
+        layerChange(type, params, callback) {
+            this.$parent.emitInnerEvent(type, params, callback);
+        }
+    }
+}
