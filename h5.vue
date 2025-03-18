@@ -1,7 +1,6 @@
 <template>
     <div class="simple-player-wrapper" :simple-player-mix-theme="getTheme">
         <VideoPlanPlayHeader
-            v-if="canShowHeader()"
             class="vpph-outer"
             hikcc_cover="opaque"
             ref="videoPlanPlayHeaderRef"
@@ -36,15 +35,13 @@
                         :index="scope.index"
                         @layer-change="layerChangeHandle">
                         <template #content>
-                            <player-container
-                                class="player-container-outer"
-                                style="width: 100%; height: 100%"
-                                :class="isPlaybackNow(scope.index)?'contain-footer':''"
+                            <h5-single-player
+                                :style="{ height: '100%' }"
                                 :ref="`${simplePlayerRefName}${scope.index}`"
-                                :player-id="`simple_player_${scope.index}`"
-                                :name="`${simplePlayerRefName}${scope.index}`"
-                                :notify-method="(player, data) => onNotify(player, data, scope.index)"
-                                @load-result="(player, errCode, data) => onLoadResult(player, errCode, data, scope.index)"
+                                :show-time-line="showH5Timeline(scope.index)"
+                                :id="`h5-single-player-${scope.index}`"
+                                @date-range="callCalendar(scope.index)"
+                                @error="(index, iErrorCode, oError) => errorHandle(scope.index, index, iErrorCode, oError)"
                             />
                         </template>
                     </player-layer>
@@ -69,7 +66,6 @@
         </div>
         <!--全局底部工具栏-->
         <tool-bar
-            v-if="canShowToolBar()"
             class="tool-bar-outer"
             ref="toolBarRef"
             @screen-change="screenChangeHandle"
@@ -84,7 +80,7 @@
 
 <script>
 /* eslint-disable */
-import {SimplePlayer as PlayerContainer, crashOccurPromise} from 'client-container';
+import H5SinglePlayer from './h5/h5-single-player';
 import VideoPlanPlayHeader from './components/VideoPlanPlayHeader';
 import PlayerHeader from './components/PlayerHeader';
 import PlayerFooter from './components/PlayerFooter';
@@ -94,36 +90,41 @@ import GlobalLayer from "./components/GlobalLayer";
 import {GLOBAL_LAYER_MAP} from "./components/GlobalLayer";
 import DefaultCameraImg from './components/DefaultCameraImg.vue';
 import PtzCompass from "./components/PtzCompass.vue";
+import {SPEED_TYPE} from "./components/SpeedSelect";
 import {SpHeaderMixin} from './mixin/SpHeader.mixin';
 import {SpFooterMixin} from './mixin/SpFooter.mixin';
 import {ConcentrateMixin} from './mixin/Concentrate.mixin';
 import {PlayerStyleMixin} from './mixin/PlayerStyle.mixin';
 import {OpenApiCommonMixin} from './mixin/OpenApiCommon.mixin';
-import {OpenApiForCcMixin} from './mixin/OpenApiForCc.mixin';
+import {OpenApiForH5Mixin} from './mixin/OpenApiForH5.mixin';
+import {API_METHOD_MAP, ApiPropsMixin} from './mixin/ApiProps.mixin';
 import {ConfigMixin} from './mixin/Config.mixin';
 import {EventMixin} from './mixin/Event.mixin';
-import {API_METHOD_MAP, ApiPropsMixin} from './mixin/ApiProps.mixin';
 import {AuthMixin} from "./mixin/Auth.mixin";
 import {ScreenTemplateMixin} from "./mixin/ScreenTemplate.mixin";
 import {clearSimplePlayerData, getSimplePlayerData} from "./lib";
 import {
-    changePlaybackTime, clearPlayer,
-    clearPlayers, clearSomeonePlayer, frameNext, framePre, getOSDTime,
-    pauseOrContinue, playBySpeed, seekTime, selectExistingDir, startPlay,
-    startPlayback,
-    startPlayback2, startPlaybackAgain, stopPlay,
-    stopPlayback
-} from "./lib/cc.lib";
-import {ACTION, EVENT_TYPE, PLAYER_STATUS_MAP, PLAYER_TYPE, READ_STREAM_WAY} from "./lib/params.lib";
+    play,
+    stopPlayer,
+    stopPlayers,
+    playback,
+    playbackAgain,
+    fast,
+    slow,
+    changePlaybackTime,
+    pause, resume, frameForward, frameBack
+} from "./lib/h5.lib";
+import {ACTION, EVENT_TYPE, PLAYER_MODE_MAP, PLAYER_STATUS_MAP, PLAYER_TYPE} from "./lib/params.lib";
 import {infoLog, logger, warnLog} from "./util/logger";
-import {deepClone, isNotEmpty} from "./util";
+import {clearPlayers} from "./lib/h5.lib";
+import {checkHttpsSafe, deepClone, isDev, isNotEmpty} from "./util";
 
 export default {
     components: {
+        H5SinglePlayer,
         VideoPlanPlayHeader,
         PlayerLayer,
         PlayerHeader,
-        PlayerContainer,
         PlayerFooter,
         DefaultCameraImg,
         ToolBar,
@@ -131,15 +132,12 @@ export default {
         PtzCompass
     },
     mixins: [
-        ScreenTemplateMixin, SpHeaderMixin, SpFooterMixin, PlayerStyleMixin, OpenApiForCcMixin,
-        OpenApiCommonMixin, ConfigMixin, ConcentrateMixin, EventMixin, ApiPropsMixin, AuthMixin
+        SpHeaderMixin, SpFooterMixin, PlayerStyleMixin, OpenApiCommonMixin, OpenApiForH5Mixin,
+        ConfigMixin, ConcentrateMixin, EventMixin, ApiPropsMixin, AuthMixin, ScreenTemplateMixin
     ],
     computed: {
         totalWndNum() {
             return this.simplePlayerData.getCurrentScreen();
-        },
-        ccExists() {
-            return this.simplePlayerData.getCcExists();
         },
         playInfos() {
             return this.simplePlayerData.getPlayInfos();
@@ -182,39 +180,55 @@ export default {
     async created() {
         // 初始化播放器对象
         this.simplePlayerData = getSimplePlayerData();
-        this.simplePlayerData.setPlayerType(PLAYER_TYPE.CLIENT_CONTAINER);
+        this.simplePlayerData.setPlayerType(PLAYER_TYPE.H5_PLAYER);
 
-        // await this.initShouldGivePointAllAuth();
-        // 如果本地进程崩溃了
-        // 会通知前端崩溃了
-        // 暂时不清楚实际作用，但是需要保留这个历史代码
-        await crashOccurPromise;
         this.platProtocol = this.isDev ? 'https' : window.location.protocol.split(':')[0];
         this.platIP = this.isDev ? process.env.VUE_APP_IP : document.domain;
     },
     mounted() {
+        this.initWindowEvent();
+        this.updateH5PlayerSize();
         // 处理时间插件问题
         this.dealDatePickerProblem();
         // 刷新当前图层
         this.fleshCurrentScreenLayers();
+        // this.checkBrowser();
     },
     beforeDestroy() {
         this.doDestroy();
+        window.removeEventListener('resize', this.updateH5PlayerSize);
         clearSimplePlayerData();
     },
     methods: {
+        checkBrowser() {
+            if(!isDev()) {
+                checkHttpsSafe(
+                    window.location.host,
+                    () => {},
+                    () => {
+                        this.$confirm('检测到浏览器并未安装证书，将导致播放器无法播放，请移步登录页面安装证书，重启浏览器。', {
+                            confirmButtonText: '我已知晓',
+                            type: 'warning'
+                        });
+                    }
+                );
+            }
+        },
         updateTimeInterval() {
-            this.$refs.toolBarRef && this.$refs.toolBarRef.updateTimeInterval();
+            this.updateTimeIntervalKey = new Date().getTime();
         },
-        canShowHeader() {
-            return this.simplePlayerData.getShowHeader();
+        getH5SinglePlayerDisplay(index) {
+            return this.simplePlayerData.isEmptyWnd(index) ? 'none' : 'block';
         },
-        canShowToolBar() {
-            return this.simplePlayerData.getShowToolBar();
+        showH5Timeline(index) {
+            return this.simplePlayerData.isPlaybackNow(index) && this.simplePlayerData.getWndStatus(index, 'status') === PLAYER_STATUS_MAP.PLAYING;
+        },
+        initWindowEvent() {
+            window.addEventListener('resize', this.updateH5PlayerSize);
         },
         callAutoLoop() {
             this.$nextTick(() => {
-                this.$refs.toolBarRef && this.$refs.toolBarRef.handleIconLoopClick('loop');
+                this.$refs.toolBarRef.handleIconLoopClick('loop');
             });
         },
         // 获取播放器对象id编号
@@ -252,26 +266,7 @@ export default {
             });
         },
         rePlayback(index) {
-            startPlaybackAgain(this, this.simplePlayerData, index, (response) => {
-                if (!(
-                    (response.hasOwnProperty('errorCode') && [0, '0'].includes(response.errorCode)) ||
-                    (response.hasOwnProperty('errCode') && [0, '0'].includes(response.errCode))
-                )) {
-                    warnLog('code error, playback fail', response);
-                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                    this.fleshLayer(index);
-                    this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index, response: res});
-                    // 状态变化，抛出事件
-                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-                }
-            }, (error) => {
-                warnLog('playback fail', error);
-                this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                this.fleshLayer(index);
-                this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index, error});
-                // 状态变化，抛出事件
-                this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-            })
+            playbackAgain(this, this.simplePlayerData, index)
         },
         // 不改变缓冲的基础上，批量替换播放
         // 供外部开放，子组件使用，子组件使用通过$parent调用
@@ -331,10 +326,8 @@ export default {
             // 要特别注意，第一个参数是需要包含播放器的作用域的this
             clearPlayers(this, this.simplePlayerData, true);
             this.clearCurrentScreenLayers();
-            // 清除缓冲数据
-            this.simplePlayerData.clearCachePoints();
             // 2、底部全局工具栏 清除toolbar中的轮询
-            this.$refs.toolBarRef && this.$refs.toolBarRef.clearTimeLooper();
+            this.$refs.toolBarRef.clearTimeLooper();
             this.eventEmit(EVENT_TYPE.CLOSE_ALL_WND, {list: currentScreen});
         },
         screenChangeHandle() {
@@ -342,7 +335,24 @@ export default {
             const currentPoint = this.simplePlayerData.getPlayInfosByIndex(index);
             this.doAnchorPoint(currentPoint);
             this.updateFooterKey();
+            this.updateH5PlayerSize();
             this.eventEmit(EVENT_TYPE.CHANGE_SCREEN);
+        },
+        // 更新H5播放器尺寸
+        updateH5PlayerSize() {
+            this.$nextTick(() => {
+                const screenNum = this.simplePlayerData.getCurrentScreen();
+                for (let i = 0; i < screenNum; i++) {
+                    const fNode = document.getElementsByClassName('player-outer')[0];
+                    const w = fNode.offsetWidth;
+                    const h = fNode.offsetHeight;
+                    const refName = `${this.simplePlayerRefName}${i}`;
+                    if (Array.isArray(this.$refs[refName])) this.$refs[refName][0].resize(w, h);
+                    else this.$refs[refName].resize(w, h);
+                    this.simplePlayerData.setH5Params(i, 'width', w);
+                    this.simplePlayerData.setH5Params(i, 'height', h);
+                }
+            });
         },
         // 是否是正在回放
         isPlaybackNow(index) {
@@ -398,21 +408,40 @@ export default {
         playStatusChangeHandle() {
             this.clearCurrentScreenLayers(); // 清除所有窗口图层
             if (this.simplePlayerData.isGlobalPreview()) {
+                this.clearAllPlayerHistoryStream(PLAYER_MODE_MAP.PLAYBACK.value); // 销毁切换前的流
                 this.doPlay();
             } else {
+                this.clearAllPlayerHistoryStream(PLAYER_MODE_MAP.PREVIEW.value); // 销毁切换前的流
                 this.doPlayback();
             }
             // 事件抛出
-            this.eventEmit(EVENT_TYPE.GLOBAL_PLAYER_STATUS);
+            this.eventEmit(EVENT_TYPE.GLOBAL_PLAYER_STATUS, {
+                status: this.simplePlayerData.getGlobalStatus()
+            });
         },
         // 播放器时间段发生改变
         videoRangeChangeHandle(params) {
+            // this.destoryAllInterval(); // 先销毁
             this.startConcentrate(params);
+        },
+        // 清楚当前页所有历史流
+        clearAllPlayerHistoryStream(type) {
+            const list = this.simplePlayerData.getCurrentPagePoint();
+            list.forEach((c, i) => {
+                switch(type) {
+                    case PLAYER_MODE_MAP.PREVIEW.value:
+                        this.callStopPlayback(i);
+                        break;
+                    case PLAYER_MODE_MAP.PLAYBACK.value:
+                        this.callStopPlay(i);
+                        break;
+                }
+            });
         },
         // 销毁所有播放器
         doDestroy() {
             // 先销毁播放器对象(内部清除播放器数据对象)
-            clearPlayers(this, this.simplePlayerData);
+            stopPlayers(this, this.simplePlayerData);
         },
         windowClick(windowIndex) {
             if (typeof windowIndex === 'number' && !Number.isNaN(windowIndex)) {
@@ -446,27 +475,9 @@ export default {
                 return resCode;
             }
         },
-        // 播放器双击事件
-        dbPlayerWndClick(index) {
-            const screen = this.simplePlayerData.getCurrentScreen();
-            const oldId = this.simplePlayerData.getCurrentDiffScreenId();
-            const old = this.simplePlayerData.getHistoryScreen();
-            if (screen !== 1) {
-                this.playerWndClick(index);
-                // 通过ID，获取1分屏对象
-                const oneScreen = this.simplePlayerData.getScreenObjByScreenNum(1);
-                this.$refs.toolBarRef && this.$refs.toolBarRef.screenChange(oneScreen, true);
-                this.simplePlayerData.setHistoryScreen(oldId);
-            } else {
-                if (isNotEmpty(old)) {
-                    const oldScreen = this.simplePlayerData.getScreenObjById(old);
-                    this.$refs.toolBarRef && this.$refs.toolBarRef.screenChange(oldScreen);
-                }
-            }
-        },
         // 视频宫格选中事件
         playerWndClick(index) {
-            this.simplePlayerData.setSelectedWnd(index, this.simplePlayerData.getPlayInfosByIndex(index));
+            this.simplePlayerData.setSelectedWnd(index);
             this.$nextTick(() => {
                 this.$refs.compTemplateRef && this.$refs.compTemplateRef.update();
             });
@@ -497,20 +508,26 @@ export default {
         },
         switchFullscreen() {
             this.changeScreen();
+            this.updateH5PlayerSize();
+            // 现场发现全屏后，计算还是早于渲染，故此处再追加一次计算样式。
+            const _id = setTimeout(() => {
+                this.updateH5PlayerSize();
+                clearTimeout(_id);
+            }, 300);
         },
         callClearPlayer(index) {
             this.closeLayer(index);
-            clearPlayer(this, this.simplePlayerData, index);
+            stopPlayer(this, this.simplePlayerData, index);
             this.simplePlayerData.resetActionActive(index);
         },
         callClearPlayers(needInit = true) {
             this.clearCurrentScreenLayers();
-            clearPlayers(this, this.simplePlayerData, needInit);
+            stopPlayers(this, this.simplePlayerData, needInit);
             this.simplePlayerData.resetActionActive();
         },
         closeAllOperation() {
             this.simplePlayerData.setCloseAll(false);
-            clearPlayers(this, this.simplePlayerData, true);
+            stopPlayer(this, this.simplePlayerData, true);
             clearInterval(this.keyInterval);
             this.loopFlag = false;
         },
@@ -521,109 +538,84 @@ export default {
         callClearSomeonePlayer(index) {
             clearSomeonePlayer(this, this.simplePlayerData, index);
         },
-        //开始播放
-        async callStartPlay(index) {
-            startPlay(this, this.simplePlayerData, index, () => {
-            }, (error) => {
-                warnLog('预览失败');
-                this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                this.fleshLayer(index);
-                this.eventEmit(EVENT_TYPE.PREVIEW_FAIL, {index, error});
-                // 状态变化，抛出事件
-                this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-            });
-        },
-        //回放2，录像片段和URL由外部传入
-        async callStartPlayback2(index, nongSuoFlag = true) {
-            startPlayback2(this, this.simplePlayerData, index, () => {
-                if (nongSuoFlag) this.playByNongsuo(index);
-            }, (response) => {
-                logger('播放失败');
-                this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                this.fleshLayer(index);
-                this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index, response});
-                // 状态变化，抛出事件
-                this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-            });
-        },
         //回放
         async callStartPlayback(index) {
-            // 自动适配取流方式
-            const streamWay = this.simplePlayerData.getReadStreamWay();
-            if (READ_STREAM_WAY.URL === streamWay) {
-                this.callStartPlayback2(index, false);
-                return;
-            } else if (READ_STREAM_WAY.AUTO === streamWay) {
-                const {url} = this.simplePlayerData.getPlayInfosByIndex(index);
-                if (url && url.indexOf('rtsp') >= 0) {
-                    this.callStartPlayback2(index, false);
-                    return;
-                }
+            const playbackUrlKey = 'playbackUrl'; // 回放取流地址KEY
+            const next = () => {
+                this.fleshLayer(index);
+                playback(this, this.simplePlayerData, index).then(() => {
+                    this.simplePlayerData.setEmptyWnd(index, false);
+                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.PLAYING);
+                    this.fleshLayer(index);
+                    this.eventEmit(EVENT_TYPE.PLAYBACK_SUCCESS, {index});
+                    // 状态变化，抛出事件
+                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
+                }).catch(() => {
+                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
+                    this.fleshLayer(index);
+                    this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index});
+                    // 状态变化，抛出事件
+                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
+                    if (!this.simplePlayerData.getIsPlaybackAgain(index)) {
+                        this.rePlayback(index);
+                    }
+                });
+            };
+            const playbackUrl = this.simplePlayerData.getH5Params(index, playbackUrlKey);
+            this.simplePlayerData.setH5Params(index, 'playbackFail', null);
+            if (isNotEmpty(playbackUrl)) {
+                next();
+            } else {
+                // 先查询接口，而后调用播放器api
+                this.getApi(API_METHOD_MAP.QUERY_H5_PLAYBACK_API)(this.simplePlayerData.getH5PlaybackApiParams(index)).then((res) => {
+                    if (isNotEmpty(res) && [0, '0'].includes(res.code)) {
+                        const {data} = res;
+                        Object.keys(data).forEach((k) => {
+                            if (['url', playbackUrlKey].includes(k)) this.simplePlayerData.setH5Params(index, playbackUrlKey, data[playbackUrlKey] || data['url']);
+                            else this.simplePlayerData.setH5Params(index, k, data[k]);
+                        });
+                    } else {
+                        // 展示错误页
+                        this.simplePlayerData.setH5Params(index, 'playbackFail', res);
+                    }
+                    infoLog('set h5 params complete.', this.simplePlayerData.getH5Params(index));
+                    next();
+                });
             }
-            startPlayback(this, this.simplePlayerData, index, (response) => {
-                // 仍需处理错误情况
-                if (!(
-                    response.hasOwnProperty('errorCode') && [0, '0'].includes(response.errorCode) ||
-                    response.hasOwnProperty('errCode') && [0, '0'].includes(response.errCode)
-                )) {
-                    warnLog('回放失败', response);
-                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                    this.fleshLayer(index);
-                    this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index, response});
-                    // 状态变化，抛出事件
-                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-                }
-            }, (error) => {
-                if (!this.simplePlayerData.isAlreadyPlaybackAgain(index)) {
-                    logger('回放失败，重新触发回放');
-                    this.rePlayback(index);
-                } else {
-                    warnLog('回放失败');
-                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
-                    this.fleshLayer(index);
-                    this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {index, error});
-                    // 状态变化，抛出事件
-                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
-                }
-            });
         },
         async callChangePlaybackTime(index, {dateRange}) {
             changePlaybackTime(this, this.simplePlayerData, index, dateRange);
         },
         //停止回放
         async callStopPlayback(index) {
-            stopPlayback(this, this.simplePlayerData, index, () => {
+            stopPlayer(this, this.simplePlayerData, index);
+        },
+        callPauseOrContinue(index, callback, params) {
+            const {value} = params;
+            const apiFunc = value ? pause : resume;
+            apiFunc(this, this.simplePlayerData, index).then(() => {
+                callback && callback();
             });
         },
-        callPauseOrContinue(index, callback) {
-            pauseOrContinue(this, this.simplePlayerData, index, callback);
-        },
-        callGetOSDTime(index) {
-            return getOSDTime(this, this.simplePlayerData, index);
-        },
-        callPlayBySpeed(index, params) {
-            playBySpeed(this, this.simplePlayerData, index, params);
-        },
-        callSeekTime(index, params) {
-            seekTime(this, this.simplePlayerData, index, params);
-        },
         callFrameNext(index) {
-            frameNext(this, this.simplePlayerData, index, (pauseStatus, delayShow) => {
-                this.pauseHandle({
-                    index,
-                    pauseStatus,
-                    delayShow
-                });
+            frameForward(this, this.simplePlayerData, index).then((res) => {
+                this.pauseHandle({index, pauseStatus: true});
             });
         },
         callFramePre(index) {
-            framePre(this, this.simplePlayerData, index, (pauseStatus, delayShow) => {
-                this.pauseHandle({
-                    index,
-                    pauseStatus,
-                    delayShow
-                });
-            })
+            frameBack(this, this.simplePlayerData, index).then((res) => {
+                this.pauseHandle({index, pauseStatus: true});
+            });
+        },
+        callPlayBySpeed(index, params, value, speed, speedType) {
+            switch (speedType) {
+                case SPEED_TYPE.FAST:
+                    fast(this, this.simplePlayerData, index);
+                    break;
+                case SPEED_TYPE.SLOW:
+                    slow(this, this.simplePlayerData, index);
+                    break;
+            }
         },
         // 暂停。触发了暂停行为更新卡片的状态为暂停
         pauseHandle({index, pauseStatus, delayShow = false}) {
@@ -634,13 +626,65 @@ export default {
                 delayShow
             });
         },
-        // 设置文件夹路径
-        setDirPath(path) {
-            this.$refs.videoPlanPlayHeaderRef && this.$refs.videoPlanPlayHeaderRef.setSettingDir(path);
+        // 错误处理
+        errorHandle(scopeIndex, index, iErrorCode, oError) {
+            const isPreview = this.simplePlayerData.isPreviewStatus(scopeIndex);
+            const err = { code: iErrorCode, msg: '异常流中断，网络环境等原因导致' };
+            infoLog('[errorHandle] scopeIndex, index, iErrorCode, oError', scopeIndex, index, iErrorCode, oError);
+            this.simplePlayerData.setWndStatus(scopeIndex, 'status', PLAYER_STATUS_MAP.FAILING);
+            if (isPreview) {
+                this.simplePlayerData.setH5Params(scopeIndex, 'previewFail', err);
+                this.eventEmit(EVENT_TYPE.PREVIEW_FAIL, {scopeIndex, index: scopeIndex});
+            } else {
+                this.simplePlayerData.setH5Params(scopeIndex, 'playbackFail', err);
+                this.eventEmit(EVENT_TYPE.PLAYBACK_FAIL, {scopeIndex, index: scopeIndex});
+            }
+            this.fleshLayer(scopeIndex);
+            // 状态变化，抛出事件
+            this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {scopeIndex, index: scopeIndex});
         },
-        // 打开文件夹
-        callSelectExistingDir(params) {
-            selectExistingDir(this, this.simplePlayerData, 0, params);
+        // 开始播放
+        // 支持两种播放，传入indexCode播放
+        // 根据取流地址播放
+        async callStartPlay(index) {
+            const next = () => {
+                this.fleshLayer(index);
+                play(this, this.simplePlayerData, index).then(() => {
+                    this.simplePlayerData.setEmptyWnd(index, false);
+                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.PLAYING);
+                    this.fleshLayer(index);
+                    this.eventEmit(EVENT_TYPE.PREVIEW_SUCCESS, {index});
+                    // 状态变化，抛出事件
+                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
+                }, (err) => {
+                    logger('err', err);
+                    this.simplePlayerData.setWndStatus(index, 'status', PLAYER_STATUS_MAP.FAILING);
+                    this.fleshLayer(index);
+                    this.eventEmit(EVENT_TYPE.PREVIEW_FAIL, {index});
+                    // 状态变化，抛出事件
+                    this.eventEmit(EVENT_TYPE.WND_STATUS_CHANGE, {index});
+                });
+            };
+            const url = this.simplePlayerData.getH5Params(index, 'url');
+            this.simplePlayerData.setH5Params(index, 'previewFail', null);
+            if (isNotEmpty(url)) {
+                next();
+            } else {
+                // 先查询接口，而后调用播放器api
+                this.getApi(API_METHOD_MAP.QUERY_H5_PREVIEW_API)(this.simplePlayerData.getH5PreviewApiParams(index)).then((res) => {
+                    if (isNotEmpty(res) && [0, '0'].includes(res.code)) {
+                        const {data} = res;
+                        Object.keys(data).forEach((k) => {
+                            this.simplePlayerData.setH5Params(index, k, data[k]);
+                        });
+                    } else {
+                        // 展示错误页
+                        this.simplePlayerData.setH5Params(index, 'previewFail', res);
+                    }
+                    infoLog('set h5 params complete.', this.simplePlayerData.getH5Params(index));
+                    next();
+                });
+            }
         },
         msgThrottle: _.throttle(
             function (sMsg) {
@@ -658,7 +702,7 @@ export default {
         ),
         //停止播放
         async callStopPlay(index) {
-            await stopPlay(this, this.simplePlayerData, index);
+            await stopPlayer(this, this.simplePlayerData, index);
         }
     }
 };
@@ -673,47 +717,81 @@ export default {
 
     .sp-window-wrapper {
         width: 100%;
+        height: 100%;
         display: flex;
         flex-flow: row wrap;
-        padding: 0;
+        padding: 0 1px;
+    }
+
+    .sp-window {
+        overflow: hidden;
+        position: relative;
+        border: #000 1px solid;
+        box-sizing: border-box;
+
+        .sp-header {
+            position: absolute;
+            left: 0;
+            top: -38px;
+        }
+
+        .simple-player {
+            width: 100%;
+            background: #333;
+        }
+
+        .player-container-outer {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .contain-footer {
+            height: calc(100% - 30px);
+        }
+
+        .sp-body {
+            height: 100%;
+            width: 100%;
+        }
+
+        .sp-body-back {
+            height: calc(100% - 30px) !important;
+            width: 100%;
+        }
+
+        .icon-clicked {
+            color: rgba(0, 0, 255, 1);
+        }
+
+        .sp-footer {
+            display: flex;
+            position: absolute;
+            z-index: 0;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: rgba(33, 33, 33, 1);
+            color: #ffffff;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .sp-footer-visible {
+            display: flex;
+        }
+
+        .sp-footer-hidden {
+            display: none;
+        }
     }
 }
 
-.sp-header {
-    position: relative;
-    left: 0;
-}
-
-.player-container-outer {
+.snap-dialog-img {
     width: 100%;
     height: 100%;
-    display: block;
-}
-
-.contain-footer {
-    height: calc(100% - 30px);
-}
-
-.sp-footer {
-    display: flex;
-    position: absolute;
-    z-index: 0;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 30px;
-    background: rgba(33, 33, 33, 1);
-    color: #ffffff;
-    justify-content: center;
-    align-items: center;
-}
-
-.sp-footer-visible {
-    display: flex;
-}
-
-.sp-footer-hidden {
-    display: none;
+    object-fit: fill;
 }
 </style>
 <style lang="scss">
